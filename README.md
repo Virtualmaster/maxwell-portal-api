@@ -47,5 +47,5 @@ RateLimit-Reset: 1730386320
 
 Request sensor information with the latest value
 ```
-./portal_curl -X POST -d '{"sensor_ids":123456}' https://portal.dc7bycecolo.com/api/v1/sensors
+./portal_curl -X POST -d '{"sensor_ids":[123456]}' https://portal.dc7bycecolo.com/api/v1/sensors
 ```
