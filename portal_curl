@@ -1,0 +1,93 @@
+#!/bin/bash
+
+#
+# replace with your tokens
+#
+refresh_token=''
+access_token=''
+authorization_url='https://portal.dc7bycecolo.com/api/v1/refresh_access_token'
+
+echoerr() { echo "$@" 1>&2; }
+
+# check dependencies
+which curl > /dev/null
+if [[ $? -ne 0 ]]
+then
+  echoerr "Missing dependency: curl"
+  exit 1;
+fi
+
+which jq > /dev/null
+if [[ $? -ne 0 ]]
+then
+  echoerr "Missing dependency: jq"
+  exit 1;
+fi
+
+# fix sed syntax on MacOS
+if [[ $OSTYPE == 'darwin'* ]]; then
+  sed_flags=(-i '')
+else
+  sed_flags=(-i)
+fi
+
+script_path="`pwd`/$0"
+
+# first argument is raw token
+check_token_expiration () {
+  token=`echo $1 | sed -n 's/\(.*\)\.\(.*\)\.\(.*\)/\2/p'`
+
+  # base64 requires token to be correct length (multiple of 4)
+  exp=`echo "$token"==== | fold -w 4 | sed '$ d' | tr -d '\n' | base64 --d | jq '.exp'`
+  time_now=`date +%s`
+
+  if [[ $exp -lt $time_now && !($exp == "null") ]]
+  then
+    echo 1
+  else
+    echo 0
+  fi
+}
+
+refresh_access_token () {
+  refresh_response=`curl -X POST -L -H "Authorization: $refresh_token" -H "Accept: application/json" "$authorization_url" 2>/dev/null`
+  errors=`jq '.errors' <<< "$refresh_response"`
+
+  if [[ "$errors" == null ]]
+  then
+    # grep is used to sanitize new tokens before replacing tokens in the script file, this should prevent code injection from remote server
+    new_access_token=`echo $refresh_response | jq '.access_token' | grep -o '[A-Za-z0-9_\.-]' | tr -d '\n'`
+    new_refresh_token=`echo $refresh_response | jq '.refresh_token' | grep -o '[A-Za-z0-9_\.-]' | tr -d '\n'`
+
+    # update this file with new tokens
+    echoerr "Refresh successful, storing new tokens"
+    sed "${sed_flags[@]}" "s/$access_token/$new_access_token/g; s/$refresh_token/$new_refresh_token/g" "$script_path"
+    
+    access_token=$new_access_token
+  else
+    echoerr "Token refresh attempt failed. Errors: $errors"
+    exit 1
+  fi
+}
+
+
+access_token_expired=`check_token_expiration $access_token`
+if [[ $access_token_expired -ne 0 ]]
+then
+  echoerr "Access token is expired, will try to refresh"
+  refresh_token_expired=`check_token_expiration $refresh_token`
+  if [[ $refresh_token_expired -ne 0 ]]
+  then
+    echoerr "Refresh token is expired, unable to continue."
+    exit 1
+  else
+    echoerr "Refresh token is valid, will proceed with access token refresh"
+    refresh_access_token
+    access_token_expired=`check_token_expiration $access_token`
+  fi
+fi
+
+if [[ $access_token_expired -eq 0 ]]
+then
+  curl -L -H "Authorization: $access_token" -H "Content-Type: application/json" -H "Accept: application/json" "$@"
+fi

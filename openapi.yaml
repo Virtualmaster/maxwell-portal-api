@@ -1,0 +1,274 @@
+openapi: 3.0.3
+info:
+  title: Maxwell monitor customer portal API
+  description: |-
+    Customer accessible endpoints of Maxwell monitor customer portal.
+    
+    Please find authorization details at the [API GitHub page](https://github.com/virtualmaster/maxwell-portal-api)
+  version: 1.0.0
+servers:
+  - url: https://portal.dc7bycecolo.com/api/v1
+tags:
+  - name: events
+    description: Active events affecting customer services.
+  - name: maintenances
+    description: Information about ongoing works affecting devices which could have impact on customer services.
+  - name: sensors
+    description: Load sensor data. Find the sensor ID in data attributes of the green badge displaying sensor value.
+paths:
+  /sensors:
+    post:
+      tags:
+        - sensors
+      summary: Load latest values for multiple sensors
+      description: Values are final, do not apply multiplier or offset.
+      operationId: loadMultiSensor
+      requestBody:
+        description: Values are final, with already applied multiplier and offset.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/sensorsQuery'
+        required: true
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/sensors'
+        '400':
+          description: Invalid request format
+        '502':
+          description: Invalid data from upstream monitoring server
+      security:
+        - api_key:
+            - read:sensors
+  /sensors/{id}:
+    get:
+      tags:
+        - sensors
+      summary: Load historical data for a sensor
+      description: Values are raw, you need to apply multiplier and offset. Use POST /sensors endpoint to acquire multipliers and offsets for selected sensors. <br><br> `final_value = value * multiplier - offset`
+      operationId: loadSensor
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: Sensor ID
+        - in: query
+          name: from
+          schema:
+            type: string
+            enum: 
+              - "19:00"
+              - "25.1.2024 10:00"
+              - "25.1.2024 10:00 UTC"
+          required: false
+          description: Start time - string parsable with `Time.parse` Ruby method, default timezone is CE(S)T, defaut behaviour is -1 day.
+        - in: query
+          name: to
+          schema:
+            type: string
+            enum: 
+              - "19:00"
+              - "25.1.2024 10:00"
+              - "25.1.2024 10:00 UTC"
+          required: false
+          description: End time - string parsable with `Time.parse` Ruby method, default timezone is CE(S)T, default behaviour is current time.
+        - in: query
+          name: data_format
+          schema: 
+            type: string
+            enum:
+              - key_value
+              - plotly
+            default: key_value
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/sensorData'
+        '400':
+          description: Invalid request format
+        '401':
+          description: Unauthorized for customer
+        '404':
+          description: Not found
+      security:
+        - api_key:
+          - read:sensors
+  /events:
+    get:
+      tags:
+        - events
+      summary: Active events affecting customer services.
+      operationId: events
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/events'
+      security:
+        - api_key:
+          - read:events
+  /maintenances:
+    get:
+      tags:
+        - maintenances
+      summary: Information about ongoing works affecting devices which could have impact on customer services.
+      operationId: maintenances
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/maintenances'
+        
+      security:
+        - api_key:
+          - read:maintenances
+
+components:
+  schemas:
+    Event:
+      type: object
+      properties:
+        name: 
+          type: string
+          example: "AC unit power off"
+        created_on:
+          type: string
+          example: "31 Oct 12:57"
+        created_at:
+          type: integer
+          example: 1730375820
+        device:
+          type: string
+          example: "AC-Unit-1.2-1"
+        room:
+          type: string
+          example: "DAT-1.2"
+        value:
+          type: string
+          example: "off (0.0)"
+        planned:
+          type: boolean
+          example: true
+    Maintenance:
+      type: object
+      properties:
+        description:
+          type: string
+          example: "New AC unit installation"
+        planned_from:
+          type: number
+          example: 1730284603
+        planned_to:
+          type: number
+          example: 1730371003
+        affected_devices:
+          type: array
+          items:
+            type: string
+            example: AC-Unit-1.2-1
+    Sensor:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1234
+        value: 
+          type: number
+          example: 21.3
+        timestamp:
+          type: number
+          example: 1730362989.4256055
+        translation:
+          type: string
+          example: null
+        multiplier:
+          type: number
+          example: 0.01
+        offset:
+          type: number
+          example: 0
+        name:
+          type: string
+          example: "room sensor temperature"
+        unit:
+          type: string
+          example: "°C"
+        box_ids:
+          type: array
+          items:
+            type: integer
+          example: []
+        wmin:
+          type: number
+          example: 19.0
+        wmax:
+          type: number
+          example: 25.0
+        fmin:
+          type: number
+          example: 18.0
+        fmax:
+          type: number
+          example: 26.0
+        warning_values:
+          type: array
+          items:
+            type: number
+          example: []
+        failure_values:
+          type: array
+          items:
+            type: number
+          example: []
+    events:
+      type: array
+      items:
+        $ref: '#/components/schemas/Event'
+    maintenances:
+      type: array
+      items:
+        $ref: '#/components/schemas/Maintenance'
+    sensorsQuery:
+      required:
+        - sensorIds
+      type: object
+      properties:
+        sensor_ids:
+          type: array
+          items:
+            type: integer
+          example: [1234, 1235]    
+    sensors:
+      type: array
+      items:
+        $ref: '#/components/schemas/Sensor'
+    sensorData:
+      type: object
+      properties:
+        1730284603:
+          type: number
+          example: 2050
+        1730284663:
+          type: number
+          example: 2080
+        1730284723:
+          type: number
+          example: 2110
+  securitySchemes:
+    api_key:
+      type: apiKey
+      name: Authorization
+      in: header
