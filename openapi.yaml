@@ -3,12 +3,14 @@ info:
   title: Maxwell monitor customer portal API
   description: |-
     Customer accessible endpoints of Maxwell monitor customer portal.
-    
-    Please find authorization details at the [API GitHub page](https://github.com/virtualmaster/maxwell-portal-api)
+
+    Please find authentication details at the [API GitHub page](https://github.com/virtualmaster/maxwell-portal-api)
   version: 1.0.0
 servers:
   - url: https://portal.dc7bycecolo.com/api/v1
 tags:
+  - name: authentication
+    description: Request new access token
   - name: events
     description: Active events affecting customer services.
   - name: maintenances
@@ -16,6 +18,33 @@ tags:
   - name: sensors
     description: Load sensor data. Find the sensor ID in data attributes of the green badge displaying sensor value.
 paths:
+  /refresh_access_token:
+    post:
+      tags:
+        - authentication
+      summary: Request new access token
+      operationId: loadTokens
+      parameters:
+        - in: header
+          name: Authorization
+          description: Refresh token
+          schema:
+            type: string
+            example: eyJhbGciOiJIUzI1NiJ9.e...
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/tokens'
+        '401':
+          description: Unauthorized
   /sensors:
     post:
       tags:
@@ -62,7 +91,7 @@ paths:
           name: from
           schema:
             type: string
-            enum: 
+            enum:
               - "19:00"
               - "25.1.2024 10:00"
               - "25.1.2024 10:00 UTC"
@@ -72,7 +101,7 @@ paths:
           name: to
           schema:
             type: string
-            enum: 
+            enum:
               - "19:00"
               - "25.1.2024 10:00"
               - "25.1.2024 10:00 UTC"
@@ -80,7 +109,7 @@ paths:
           description: End time - string parsable with `Time.parse` Ruby method, default timezone is CE(S)T, default behaviour is current time.
         - in: query
           name: data_format
-          schema: 
+          schema:
             type: string
             enum:
               - key_value
@@ -131,7 +160,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/maintenances'
-        
       security:
         - api_key:
           - read:maintenances
@@ -141,7 +169,7 @@ components:
     Event:
       type: object
       properties:
-        name: 
+        name:
           type: string
           example: "AC unit power off"
         created_on:
@@ -185,7 +213,7 @@ components:
         id:
           type: integer
           example: 1234
-        value: 
+        value:
           type: number
           example: 21.3
         timestamp:
@@ -250,7 +278,7 @@ components:
           type: array
           items:
             type: integer
-          example: [1234, 1235]    
+          example: [1234, 1235]
     sensors:
       type: array
       items:
@@ -267,6 +295,15 @@ components:
         1730284723:
           type: number
           example: 2110
+    tokens:
+      type: object
+      properties:
+        access_token:
+          type: string
+          example: eyJhbGciOiJIUzI1NiJ9.e...
+        refresh_token:
+          type: string
+          example: eyJhbGciOiJIUzI1NiJ9.e...
   securitySchemes:
     api_key:
       type: apiKey

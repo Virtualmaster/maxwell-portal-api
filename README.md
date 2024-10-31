@@ -26,7 +26,7 @@ Validity of both tokens can be checked locally. The part of the token between th
 
 To obtain new access token make request with refresh token to the authorization URL `/api/v1/refresh_access_token`. Response contains new refresh token and access token.
 ```
-curl -L -H "Authorization: $refresh_token" -H "Accept: application/json" "$authorization_url"
+curl -X POST -L -H "Authorization: $refresh_token" -H "Accept: application/json" "$authorization_url"
 ```
 
 For data requests replace refresh token with access token and request the desired url
